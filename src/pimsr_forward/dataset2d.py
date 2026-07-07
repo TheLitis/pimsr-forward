@@ -82,14 +82,19 @@ def build_dataset_2d(
             ph_n = np.empty_like(phase)
             rho_n_tm = np.empty_like(rho_tm)
             ph_n_tm = np.empty_like(phase_tm)
+            # Per-section TM galvanic severity: most sections mildly worse
+            # than TE, a tail of strongly distorted ones (real rows I/K).
+            tm_shift_sigma = float(rng.uniform(0.15, 0.40))
+            tm_distort_hi = float(np.exp(rng.uniform(np.log(0.25), np.log(0.60))))
             for j in range(n_st):
                 rho_n[:, j], ph_n[:, j] = sensor.apply_mt(
                     rho_a[:, j], phase[:, j], periods, rng
                 )
                 # independent noise draw per mode: galvanic static shifts
-                # differ between xy and yx in real data
+                # differ between xy and yx in real data, and yx is boosted
                 rho_n_tm[:, j], ph_n_tm[:, j] = sensor.apply_mt(
-                    rho_tm[:, j], phase_tm[:, j], periods, rng
+                    rho_tm[:, j], phase_tm[:, j], periods, rng,
+                    shift_sigma=tm_shift_sigma, distort_hi=tm_distort_hi,
                 )
 
             obs_r[i] = np.log10(rho_n)

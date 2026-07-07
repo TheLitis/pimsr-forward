@@ -66,8 +66,16 @@ class SensorModel:
         periods: np.ndarray,
         rng: np.random.Generator,
         static_shift: bool = True,
+        shift_sigma: float | None = None,
+        distort_hi: float | None = None,
     ) -> tuple[np.ndarray, np.ndarray]:
-        """Return noisy (rho_app, phase). Shapes preserved."""
+        """Return noisy (rho_app, phase). Shapes preserved.
+
+        ``shift_sigma`` / ``distort_hi`` override the per-mode galvanic
+        distortion strength: real yx (TM) curves carry markedly stronger
+        static shifts and correlated distortion than xy (TE) — the v3
+        real-data caveat (USArray rows I/K).
+        """
         periods = np.asarray(periods)
         rel = np.full_like(rho_app, self.mt_rel_floor)
         dead = (periods >= 0.1) & (periods <= 10.0)
@@ -76,8 +84,9 @@ class SensorModel:
         rho_noisy = rho_app * np.exp(rng.normal(0.0, rel))
         phase_noisy = phase + rng.normal(0.0, self.mt_phase_floor_deg, phase.shape)
 
-        if self.distort_log10rho_hi > 0.0:
-            lo, hi = self.distort_log10rho_lo, self.distort_log10rho_hi
+        hi = self.distort_log10rho_hi if distort_hi is None else distort_hi
+        if hi > 0.0:
+            lo = min(self.distort_log10rho_lo, hi)
             amp = np.exp(rng.uniform(np.log(lo), np.log(hi)))
             curve = _ar1_curve(rho_app.size, self.distort_lag1, rng)
             rho_noisy = rho_noisy * 10.0 ** (amp * curve)
@@ -86,7 +95,8 @@ class SensorModel:
             )
 
         if static_shift:
-            shift = 10.0 ** rng.normal(0.0, self.static_shift_sigma)
+            sigma = self.static_shift_sigma if shift_sigma is None else shift_sigma
+            shift = 10.0 ** rng.normal(0.0, sigma)
             rho_noisy = rho_noisy * shift
         return rho_noisy, phase_noisy
 
