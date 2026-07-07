@@ -1,8 +1,10 @@
-"""2D magnetotelluric forward modelling via SimPEG (TE mode).
+"""2D magnetotelluric forward modelling via SimPEG (TE + TM modes).
 
 Validated against the analytic 1D Wait recursion for layered models:
-median apparent-resistivity error 0.6 % across 1e-2..1e2 s (max 7 % at the
-longest period, controlled by the depth of the padding region).
+median apparent-resistivity error 0.4 % (TE) / 0.13 % (TM) across
+1e-2..1e2 s (max 7 % at the longest period, controlled by the depth of
+the padding region). TM phase comes out of SimPEG's yx receiver already
+in the first-quadrant convention (offset 0), unlike TE's xy (+180).
 
 The mesh is built once and reused across models — only the conductivity
 vector changes — which keeps the per-model cost at ~0.5 s for
@@ -95,6 +97,17 @@ class MT2DForward:
             self._m.mesh, survey=survey, sigmaMap=maps.IdentityMap(self._m.mesh)
         )
 
+        # TM mode: H-field formulation with yx impedance receivers.
+        rx_tm = [
+            nsem.receivers.Impedance(rx_locs, orientation="yx", component="apparent_resistivity"),
+            nsem.receivers.Impedance(rx_locs, orientation="yx", component="phase"),
+        ]
+        srcs_tm = [nsem.sources.Planewave(rx_tm, frequency=f) for f in self.frequencies]
+        survey_tm = nsem.survey.Survey(srcs_tm)
+        self._sim_tm = nsem.simulation.Simulation2DMagneticField(
+            self._m.mesh, survey=survey_tm, sigmaMap=maps.IdentityMap(self._m.mesh)
+        )
+
     # ------------------------------------------------------------------ API
 
     @property
@@ -127,3 +140,22 @@ class MT2DForward:
         rho_a = d[:, 0, :]
         phase = d[:, 1, :] + 180.0  # SimPEG xy TE convention -> 0..90
         return rho_a, phase
+
+    def response_tm(self, section) -> tuple[np.ndarray, np.ndarray]:
+        """TM-mode (rho_a, phase_deg) of shape (n_freq, n_station).
+
+        SimPEG's yx receiver already reports the phase in the 0..90 deg
+        first-quadrant convention (validated against the 1D recursion).
+        """
+        sigma = self.sigma_from_section(
+            section.log10_res, section.x_grid, section.depth_grid
+        )
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            data = self._sim_tm.dpred(sigma)
+        d = data.reshape(len(self.frequencies), 2, len(self.station_x))
+        return d[:, 0, :], d[:, 1, :]
+
+    def response_modes(self, section) -> dict[str, tuple[np.ndarray, np.ndarray]]:
+        """Both modes in one call: ``{"te": (rho, ph), "tm": (rho, ph)}``."""
+        return {"te": self.response(section), "tm": self.response_tm(section)}
