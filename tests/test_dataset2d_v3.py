@@ -10,7 +10,9 @@ import h5py
 import numpy as np
 import pytest
 
-from pimsr_forward.dataset2d import build_dataset_2d, merge_shards
+pytest.importorskip("simpeg")
+
+from pimsr_forward.dataset2d import build_dataset_2d, merge_shards  # noqa: E402
 
 warnings.filterwarnings("ignore")
 
