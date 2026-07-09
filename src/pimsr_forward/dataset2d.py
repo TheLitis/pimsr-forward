@@ -83,9 +83,13 @@ def build_dataset_2d(
             rho_n_tm = np.empty_like(rho_tm)
             ph_n_tm = np.empty_like(phase_tm)
             # Per-section TM galvanic severity: most sections mildly worse
-            # than TE, a tail of strongly distorted ones (real rows I/K).
-            tm_shift_sigma = float(rng.uniform(0.15, 0.40))
-            tm_distort_hi = float(np.exp(rng.uniform(np.log(0.25), np.log(0.60))))
+            # than TE, a tail of distorted ones (real rows I/K). v4.1: the
+            # tail is milder than v4 (0.45 vs 0.60 distortion cap, 0.32 vs
+            # 0.40 shift cap) — v4's heavy tail bought hard-row wins at the
+            # cost of zero-shot regression on clean profiles (H-YS 4.91 vs
+            # v3's 4.36); see pimsr-benchmarks REPORT.md v4 findings.
+            tm_shift_sigma = float(rng.uniform(0.15, 0.32))
+            tm_distort_hi = float(np.exp(rng.uniform(np.log(0.25), np.log(0.45))))
             for j in range(n_st):
                 rho_n[:, j], ph_n[:, j] = sensor.apply_mt(
                     rho_a[:, j], phase[:, j], periods, rng
