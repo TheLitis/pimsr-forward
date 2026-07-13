@@ -23,6 +23,7 @@ mt2d = ["simpeg>=0.25", "discretize>=0.12"]
 [project.scripts]
 pimsr-forward-dataset = "pimsr_forward.cli:main"
 pimsr-forward-dataset2d = "pimsr_forward.cli2d:main"
+pimsr-forward-dataset3d = "pimsr_forward.cli3d:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
