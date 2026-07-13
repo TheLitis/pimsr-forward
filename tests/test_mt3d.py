@@ -1,5 +1,6 @@
 import h5py
 import numpy as np
+import pytest
 
 from pimsr_forward.dataset3d import validate_sample3d, write_sample3d
 from pimsr_forward.mt3d import MT3DResponse
@@ -28,7 +29,10 @@ def test_atomic_hdf5_contract(tmp_path):
 
 
 def test_model_mapping_is_finite():
-    # Exercise mapping without paying for a linear solve.
+    # Exercise mapping without paying for a linear solve. The solver stack is
+    # an optional dependency, matching the existing mt2d package contract.
+    pytest.importorskip("discretize")
+    pytest.importorskip("simpeg")
     from pimsr_forward.mt3d import MT3DForward
 
     solver = MT3DForward(frequencies=[0.1], station_x=[0], station_y=[0], cell_size=3000)
