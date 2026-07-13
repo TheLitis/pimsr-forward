@@ -9,11 +9,16 @@ import numpy as np
 
 __all__ = ["write_sample3d", "validate_sample3d"]
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 
-def write_sample3d(path, volume, response, frequencies, provenance=None) -> Path:
-    """Write one sample via ``.part`` then atomically publish it."""
+def write_sample3d(path, volume, response, frequencies, station_x, station_y, provenance=None) -> Path:
+    """Write one sample via ``.part`` then atomically publish it.
+
+    Observations live on the station grid ``(station_y, station_x)`` while the
+    target volume lives on the geology grid — the two are stored and validated
+    independently so survey layout never has to match model resolution.
+    """
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     part = path.with_suffix(path.suffix + ".part")
@@ -28,6 +33,8 @@ def write_sample3d(path, volume, response, frequencies, provenance=None) -> Path
         f.create_dataset("observations/phase", data=response.phase.astype("f4"))
         f.create_dataset("target/log10_resistivity", data=volume.log10_res.astype("f4"), compression="gzip")
         f.create_dataset("coordinates/frequencies", data=np.asarray(frequencies))
+        f.create_dataset("coordinates/station_x", data=np.asarray(station_x))
+        f.create_dataset("coordinates/station_y", data=np.asarray(station_y))
         f.create_dataset("coordinates/x", data=volume.x_grid)
         f.create_dataset("coordinates/y", data=volume.y_grid)
         f.create_dataset("coordinates/depth", data=volume.depth_grid)
@@ -46,7 +53,7 @@ def validate_sample3d(path) -> None:
         target = f["target/log10_resistivity"]
         expected_obs = (
             len(f["coordinates/frequencies"]), len(f["coordinates/modes"]),
-            len(f["coordinates/y"]), len(f["coordinates/x"]),
+            len(f["coordinates/station_y"]), len(f["coordinates/station_x"]),
         )
         expected_target = (len(f["coordinates/depth"]), len(f["coordinates/y"]), len(f["coordinates/x"]))
         if obs.shape != expected_obs or phase.shape != expected_obs or target.shape != expected_target:
